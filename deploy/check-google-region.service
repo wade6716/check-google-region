@@ -1,0 +1,16 @@
+[Unit]
+Description=Google & YouTube Region IP Change Monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/check_google_region
+EnvironmentFile=/opt/check_google_region/.env
+ExecStart=/opt/check_google_region/.venv/bin/check-google-region --daemon --interval 600
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

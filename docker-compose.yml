@@ -1,0 +1,19 @@
+services:
+  check-google-region:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: check-google-region:latest
+    container_name: check-google-region
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DAEMON_MODE=true
+      - INTERVAL=600
+    volumes:
+      # Persist state across container restarts
+      - region_data:/var/tmp
+
+volumes:
+  region_data:

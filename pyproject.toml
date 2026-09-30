@@ -1,0 +1,48 @@
+[project]
+name = "check-google-region"
+version = "0.1.0"
+description = "Monitor Google/YouTube IP region and send email alerts on changes"
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "wade", email = "wade67168@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = []
+keywords = [
+    "google",
+    "youtube",
+    "youtube-premium",
+    "ip-location",
+    "geolocation",
+    "monitor",
+    "alert",
+    "proxy-checker",
+    "vps",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Networking :: Monitoring",
+]
+
+[project.scripts]
+check-google-region = "check_google_region:main"
+
+[project.urls]
+Homepage = "https://github.com/wade6716/check-google-region"
+Repository = "https://github.com/wade6716/check-google-region.git"
+Issues = "https://github.com/wade6716/check-google-region/issues"
+
+[build-system]
+requires = ["uv_build>=0.12.10,<0.13.0"]
+build-backend = "uv_build"
