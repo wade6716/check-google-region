@@ -1,18 +1,17 @@
 services:
   check-google-region:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: check-google-region:latest
+    # 方式 1：直接使用预构建的多架构镜像（推荐，省时省力）
+    image: ghcr.io/wade6716/check-google-region:latest
+    # 方式 2：若需从本地源码构建，解开下面注释即可
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     container_name: check-google-region
     restart: unless-stopped
     env_file:
       - .env
-    environment:
-      - DAEMON_MODE=true
-      - INTERVAL=600
     volumes:
-      # Persist state across container restarts
+      # 持久化存储状态文件，容器重启不丢失数据
       - region_data:/var/tmp
 
 volumes:

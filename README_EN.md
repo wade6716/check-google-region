@@ -110,24 +110,20 @@ Create a `.env` file in the working directory (see [.env.example](.env.example))
 
 ## 🚢 Deployment Guides
 
-### Option 1: Docker Compose (Recommended)
+### Option 1: Docker (Recommended)
 
-Run as an isolated, persistent container without needing local Python or cron configurations:
+Run as an isolated, persistent container using the official prebuilt multi-arch image (AMD64 & ARM64):
 
-```yaml
-services:
-  check-google-region:
-    build: .
-    container_name: check-google-region
-    restart: unless-stopped
-    env_file:
-      - .env
-    volumes:
-      - region_data:/var/tmp
-
-volumes:
-  region_data:
+```bash
+docker run -d \
+  --name check-google-region \
+  --restart unless-stopped \
+  --env-file .env \
+  -v region_data:/var/tmp \
+  ghcr.io/wade6716/check-google-region:latest
 ```
+
+Or start with Docker Compose:
 
 ```bash
 docker compose up -d

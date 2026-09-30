@@ -110,24 +110,20 @@ check-google-region --help
 
 ## 🚢 部署方式推荐
 
-### 方式 1：Docker Compose (推荐)
+### 方式 1：Docker 一键运行 (推荐)
 
-通过 Docker 快速启动常驻容器，无需在宿主机配置 Python 或 cron：
+无需在宿主机安装任何 Python 环境，直接拉取预构建的多架构镜像（支持 AMD64 / ARM64）：
 
-```yaml
-services:
-  check-google-region:
-    build: .
-    container_name: check-google-region
-    restart: unless-stopped
-    env_file:
-      - .env
-    volumes:
-      - region_data:/var/tmp
-
-volumes:
-  region_data:
+```bash
+docker run -d \
+  --name check-google-region \
+  --restart unless-stopped \
+  --env-file .env \
+  -v region_data:/var/tmp \
+  ghcr.io/wade6716/check-google-region:latest
 ```
+
+或使用 Docker Compose 启动：
 
 ```bash
 docker compose up -d
