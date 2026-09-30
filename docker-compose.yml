@@ -8,6 +8,8 @@ services:
     #   dockerfile: Dockerfile
     container_name: check-google-region
     restart: unless-stopped
+    # 若需在 Docker 容器内完整检测宿主机 IPv6，推荐启用 host 网络模式：
+    # network_mode: "host"
     env_file:
       - .env
     volumes:

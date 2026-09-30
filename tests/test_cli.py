@@ -7,6 +7,14 @@ class TestCli(unittest.TestCase):
         args = parse_args(["--check"])
         self.assertTrue(args.check)
         self.assertFalse(args.test_email)
+        self.assertFalse(args.ipv4_only)
+        self.assertFalse(args.ipv6_only)
+
+        args = parse_args(["--ipv4-only"])
+        self.assertTrue(args.ipv4_only)
+
+        args = parse_args(["-6"])
+        self.assertTrue(args.ipv6_only)
 
         args = parse_args(["--daemon", "--interval", "300"])
         self.assertTrue(args.daemon)

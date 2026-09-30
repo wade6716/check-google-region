@@ -28,6 +28,7 @@
 
 ## ✨ 核心亮点
 
+- 🌐 **IPv4 / IPv6 双栈独立探测**：分别独立检测 IPv4 和 IPv6 的出口公网 IP 与 Google 判定区域，精准定位究竟是哪个栈被送中，彻底告别单栈混淆。
 - 🛡️ **精准判定与多重兜底**：优先通过 YouTube Premium 页面解析国家代码（`countryCode`/`GL`），若遇限流自动回退至 Google 重定向端点判定。
 - 🔍 **公网 IP 自动关联**：告警与状态记录自动关联当前出口的公网 IP，在维护多台 VPS 或弹性 IP 时定位一目了然。
 - ⏱️ **防抖二次复测机制 (Debounce)**：初次检测到地区变更时，默认在 3 秒后发起二次探测确认，确认变动才触发告警，避免偶发网络波动导致垃圾邮件轰炸。
@@ -73,6 +74,8 @@ check-google-region --help
 
 选项:
   -c, --check          仅检测当前地区和公网 IP 并打印，不修改状态、不发送通知 (Dry Run)
+  -4, --ipv4-only      仅检测 IPv4 栈
+  -6, --ipv6-only      仅检测 IPv6 栈
   -t, --test-email     发送一封测试告警邮件，快速排查 SMTP 账号和授权码是否配置有效
   -s, --status         查看本地缓存的上次检测状态与最后更新时间
   -f, --force          强制发送通知并刷新状态文件（无论地区是否发生变动）
@@ -114,10 +117,13 @@ check-google-region --help
 
 无需在宿主机安装任何 Python 环境，直接拉取预构建的多架构镜像（支持 AMD64 / ARM64）：
 
+> 💡 **提示**：若需要完整检测宿主机的 IPv6 双栈，建议加上 `--net=host`（或在 compose 中启用 `network_mode: "host"`）。
+
 ```bash
 docker run -d \
   --name check-google-region \
   --restart unless-stopped \
+  --net=host \
   --env-file .env \
   -v region_data:/var/tmp \
   ghcr.io/wade6716/check-google-region:latest

@@ -1,6 +1,7 @@
-"""Notification delivery manager for check-google-region.
+"""Notification delivery manager for check-google-region with Dual-Stack (IPv4 / IPv6) alerts.
 
 Features:
+- Dual-Stack aware alerting (distinctly flags IPv4 vs IPv6 changes)
 - Port-adaptive SMTP: 465 SSL, 587/25 STARTTLS
 - HTML & Plain text dual-format email alerts
 - Enriched alert metadata: Public IP, Timestamp, Hostname, Detection source
@@ -27,15 +28,17 @@ class Notifier:
         self.config = config
         self.verbose = verbose
 
-    def send_alert(
+    def send_stack_alert(
         self,
+        stack_name: str,
         old_country: Optional[str],
         new_country: str,
         public_ip: Optional[str] = None,
-        source: str = "YouTube",
+        source: str = "YouTube Premium",
         is_test: bool = False,
+        dual_status: Optional[dict] = None,
     ) -> bool:
-        """Dispatch alerts to configured channels (Email, Telegram, Webhook)."""
+        """Dispatch dual-stack alerts to configured channels (Email, Telegram, Webhook)."""
         hostname = socket.gethostname()
         now_str = datetime.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
         ip_display = public_ip or "未知 / 未能获取"
@@ -43,34 +46,57 @@ class Notifier:
         is_sent_to_cn = (new_country == "CN")
 
         if is_test:
-            subject = f"【测试】Google 区域检测通知测试 - {hostname}"
-            header_title = "Google 区域监控 - 测试通知"
+            subject = f"【测试】Google 区域检测通知测试 ({stack_name}) - {hostname}"
+            header_title = f"Google 区域监控 - 测试通知 ({stack_name})"
             summary_desc = "这是一封由 --test-email 触发的测试通知，说明您的通知通道配置有效。"
         elif is_sent_to_cn:
-            subject = f"【紧急告警】服务器 IP 被 Google 标记为中国区 (CN)！ - {hostname}"
-            header_title = "⚠️ 紧急告警：Google 区域送中 (CN)！"
-            summary_desc = "警告：检测到服务器 IP 已被 Google / YouTube 判定为中国大陆地区，请及时排查网络或更换分流出口。"
+            subject = f"【紧急告警】服务器 {stack_name} 被 Google 标记为中国区 (CN)！ - {hostname}"
+            header_title = f"⚠️ 紧急告警：Google 区域送中 ({stack_name})！"
+            summary_desc = f"警告：检测到服务器 {stack_name} 出口已被 Google / YouTube 判定为中国大陆地区，请及时排查网络或更换分流出口。"
         else:
-            subject = f"【通知】Google 归属地区变更: {old_country or '未知'} -> {new_country} - {hostname}"
-            header_title = "Google 归属地区变更通知"
-            summary_desc = "通知：服务器对外访问 Google 时识别的国家/地区已发生变更。"
+            subject = f"【通知】Google 归属地区变更 ({stack_name}): {old_country or '未知'} -> {new_country} - {hostname}"
+            header_title = f"Google 归属地区变更通知 ({stack_name})"
+            summary_desc = f"通知：服务器 {stack_name} 对外访问 Google 时识别的国家/地区已发生变更。"
 
         # Plaintext body
-        text_content = (
-            f"{header_title}\n"
-            f"{'=' * 40}\n"
-            f"{summary_desc}\n\n"
-            f"- 服务器主机名: {hostname}\n"
-            f"- 服务器公网 IP: {ip_display}\n"
-            f"- 历史判定地区: {old_country or '未知 (初次)'}\n"
-            f"- 最新判定地区: {new_country}\n"
-            f"- 判定来源端点: {source}\n"
-            f"- 检测时间戳: {now_str}\n"
-            f"{'=' * 40}\n"
-        )
+        text_lines = [
+            header_title,
+            "=" * 40,
+            summary_desc,
+            "",
+            f"- 服务器主机名: {hostname}",
+            f"- 触发协议栈: {stack_name}",
+            f"- 发生变动 IP: {ip_display}",
+            f"- 历史判定地区: {old_country or '未知 (初次)'}",
+            f"- 最新判定地区: {new_country}",
+            f"- 判定来源端点: {source}",
+            f"- 检测时间戳: {now_str}",
+        ]
+
+        if dual_status:
+            text_lines.append("")
+            text_lines.append("【双栈状态总览】")
+            v4_info = dual_status.get("ipv4", {})
+            v6_info = dual_status.get("ipv6", {})
+            text_lines.append(f"- IPv4: {v4_info.get('country', '不可达')} ({v4_info.get('ip', '无 IP')})")
+            text_lines.append(f"- IPv6: {v6_info.get('country', '不可达/未启用')} ({v6_info.get('ip', '无 IP')})")
+
+        text_lines.append("=" * 40)
+        text_content = "\n".join(text_lines)
 
         # HTML body
         badge_color = "#e53e3e" if is_sent_to_cn else "#3182ce"
+
+        dual_html_rows = ""
+        if dual_status:
+            v4_info = dual_status.get("ipv4", {})
+            v6_info = dual_status.get("ipv6", {})
+            dual_html_rows = f"""
+            <tr><td colspan="2" style="background:#f7fafc;font-weight:bold;padding:8px 12px;color:#4a5568;">当前双栈状态总览</td></tr>
+            <tr><td class="label">IPv4 状态</td><td class="value">地区: <b>{v4_info.get('country', '不可达')}</b> (<code>{v4_info.get('ip', '无 IP')}</code>)</td></tr>
+            <tr><td class="label">IPv6 状态</td><td class="value">地区: <b>{v6_info.get('country', '不可达/未配置')}</b> (<code>{v6_info.get('ip', '无 IP')}</code>)</td></tr>
+            """
+
         html_content = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -98,13 +124,15 @@ class Notifier:
       <div class="desc">{summary_desc}</div>
       <table>
         <tr><td class="label">服务器主机名</td><td class="value"><code>{hostname}</code></td></tr>
-        <tr><td class="label">服务器公网 IP</td><td class="value"><code>{ip_display}</code></td></tr>
+        <tr><td class="label">报警协议栈</td><td class="value"><span class="tag" style="background:#edf2f7;">{stack_name}</span></td></tr>
+        <tr><td class="label">变动公网 IP</td><td class="value"><code>{ip_display}</code></td></tr>
         <tr><td class="label">地区变更</td><td class="value"><span class="tag tag-old">{old_country or '未知'}</span> ➔ <span class="tag tag-new">{new_country}</span></td></tr>
         <tr><td class="label">判定来源</td><td class="value">{source}</td></tr>
         <tr><td class="label">检测时间</td><td class="value">{now_str}</td></tr>
+        {dual_html_rows}
       </table>
     </div>
-    <div class="footer">由 check-google-region 自动监控发送</div>
+    <div class="footer">由 check-google-region 双栈监控自动发送</div>
   </div>
 </body>
 </html>
@@ -127,7 +155,7 @@ class Notifier:
 
         # 2. Send Telegram (if configured)
         if self.config.telegram_bot_token and self.config.telegram_chat_id:
-            tg_text = f"*{header_title}*\n{summary_desc}\n\n*主机名*: `{hostname}`\n*IP*: `{ip_display}`\n*变更*: `{old_country or '未知'}` -> `{new_country}`\n*时间*: `{now_str}`"
+            tg_text = f"*{header_title}*\n{summary_desc}\n\n*主机名*: `{hostname}`\n*协议栈*: `{stack_name}`\n*IP*: `{ip_display}`\n*变更*: `{old_country or '未知'}` -> `{new_country}`\n*时间*: `{now_str}`"
             tg_ok = self._send_telegram(tg_text)
             success = success and tg_ok
 
@@ -137,16 +165,36 @@ class Notifier:
                 "title": header_title,
                 "summary": summary_desc,
                 "hostname": hostname,
+                "stack": stack_name,
                 "ip": public_ip,
                 "old_country": old_country,
                 "new_country": new_country,
                 "timestamp": now_str,
                 "is_sent_to_cn": is_sent_to_cn,
+                "dual_status": dual_status,
             }
             webhook_ok = self._send_webhook(webhook_payload)
             success = success and webhook_ok
 
         return success
+
+    def send_alert(
+        self,
+        old_country: Optional[str],
+        new_country: str,
+        public_ip: Optional[str] = None,
+        source: str = "YouTube Premium",
+        is_test: bool = False,
+    ) -> bool:
+        """Legacy compatibility wrapper for single stack alert."""
+        return self.send_stack_alert(
+            stack_name="IPv4",
+            old_country=old_country,
+            new_country=new_country,
+            public_ip=public_ip,
+            source=source,
+            is_test=is_test,
+        )
 
     def _is_email_configured(self) -> bool:
         """Check if SMTP credentials appear configured."""
@@ -219,7 +267,7 @@ class Notifier:
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 if resp.status == 200:
-                    print(f"[OK] Telegram 告警推送成功")
+                    print("[OK] Telegram 告警推送成功")
                     return True
         except Exception as e:
             print(f"[!] Telegram 推送失败: {e}")
@@ -236,7 +284,7 @@ class Notifier:
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 if 200 <= resp.status < 300:
-                    print(f"[OK] Webhook 告警推送成功")
+                    print("[OK] Webhook 告警推送成功")
                     return True
         except Exception as e:
             print(f"[!] Webhook 推送失败: {e}")

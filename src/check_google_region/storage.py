@@ -1,31 +1,74 @@
-"""State persistence management for check-google-region.
+"""State persistence management for check-google-region with Dual-Stack (IPv4 / IPv6) support.
 
 Provides atomic file writing and backward-compatible JSON/plaintext state loading.
 """
 
 import json
 import os
-import tempfile
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Optional
 
 
 @dataclass
-class RegionState:
-    country: str
+class StackState:
+    country: Optional[str] = None
     ip: Optional[str] = None
     updated_at: Optional[str] = None
-    hostname: Optional[str] = None
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "RegionState":
+    def from_dict(cls, data: dict) -> "StackState":
         return cls(
-            country=data.get("country", ""),
+            country=data.get("country"),
             ip=data.get("ip"),
             updated_at=data.get("updated_at"),
+        )
+
+
+@dataclass
+class RegionState:
+    ipv4: StackState = field(default_factory=StackState)
+    ipv6: StackState = field(default_factory=StackState)
+    hostname: Optional[str] = None
+
+    # Backward compatibility properties
+    @property
+    def country(self) -> Optional[str]:
+        return self.ipv4.country
+
+    @property
+    def ip(self) -> Optional[str]:
+        return self.ipv4.ip
+
+    @property
+    def updated_at(self) -> Optional[str]:
+        return self.ipv4.updated_at
+
+    def to_dict(self) -> dict:
+        return {
+            "ipv4": self.ipv4.to_dict(),
+            "ipv6": self.ipv6.to_dict(),
+            "hostname": self.hostname,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "RegionState":
+        if "ipv4" in data or "ipv6" in data:
+            return cls(
+                ipv4=StackState.from_dict(data.get("ipv4", {})),
+                ipv6=StackState.from_dict(data.get("ipv6", {})),
+                hostname=data.get("hostname"),
+            )
+        # Legacy single-stack format migration
+        return cls(
+            ipv4=StackState(
+                country=data.get("country"),
+                ip=data.get("ip"),
+                updated_at=data.get("updated_at"),
+            ),
+            ipv6=StackState(),
             hostname=data.get("hostname"),
         )
 
@@ -35,12 +78,11 @@ class StateManager:
         self.state_file = os.path.abspath(state_file)
 
     def load(self) -> Optional[RegionState]:
-        """Load state from state_file with fallback to legacy plaintext formats."""
+        """Load state from state_file with fallback to legacy single-stack and plaintext formats."""
         target_path = self.state_file
 
         # Check if json state file exists
         if not os.path.exists(target_path):
-            # Check for legacy .txt file in same directory
             legacy_txt = os.path.splitext(target_path)[0] + ".txt"
             if os.path.exists(legacy_txt):
                 target_path = legacy_txt
@@ -56,7 +98,7 @@ class StateManager:
             # Try parsing as JSON first
             try:
                 data = json.loads(content)
-                if isinstance(data, dict) and "country" in data:
+                if isinstance(data, dict):
                     return RegionState.from_dict(data)
             except json.JSONDecodeError:
                 pass
@@ -64,7 +106,10 @@ class StateManager:
             # Fallback: treat as plain country code (e.g. "US")
             clean_country = content.splitlines()[0].strip().upper()
             if len(clean_country) == 2 and clean_country.isalpha():
-                return RegionState(country=clean_country)
+                return RegionState(
+                    ipv4=StackState(country=clean_country),
+                    ipv6=StackState(),
+                )
 
         except Exception as e:
             print(f"[!] 读取状态文件失败 ({target_path}): {e}")

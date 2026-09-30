@@ -1,4 +1,4 @@
-"""Check Google / YouTube IP region and send email alerts on changes.
+"""Check Google / YouTube IP region and send email alerts on changes with Dual-Stack (IPv4 / IPv6) support.
 
 Public exports:
 - main(): CLI entrypoint
@@ -8,15 +8,16 @@ Public exports:
 - Notifier: Notification dispatcher
 - StateManager: State persistence manager
 - Config: Configuration holder
+- StackResult, DualStackResult, RegionState, StackState
 """
 
 from typing import Optional
 
 from .cli import main, setup_console_encoding
 from .config import Config
-from .detector import DetectionResult, RegionDetector
+from .detector import DetectionResult, DualStackResult, RegionDetector, StackResult
 from .notifier import Notifier
-from .storage import RegionState, StateManager
+from .storage import RegionState, StackState, StateManager
 
 __all__ = [
     "main",
@@ -26,13 +27,16 @@ __all__ = [
     "Notifier",
     "StateManager",
     "RegionState",
+    "StackState",
     "Config",
     "DetectionResult",
+    "StackResult",
+    "DualStackResult",
 ]
 
 
 def get_current_google_region(proxy: Optional[str] = None) -> Optional[str]:
-    """Legacy compatibility function for detecting current Google region."""
+    """Legacy compatibility function for detecting current Google region (IPv4)."""
     detector = RegionDetector(proxy=proxy)
     result = detector.detect(fetch_ip=False)
     return result.country

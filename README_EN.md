@@ -28,6 +28,7 @@
 
 ## ✨ Features
 
+- 🌐 **Independent Dual-Stack (IPv4 / IPv6) Detection**: Distinctly probes IPv4 and IPv6 egress public IP and Google geo-regions, precisely identifying which stack triggered a change or lockout.
 - 🛡️ **Accurate Detection with Fallback**: Queries YouTube Premium endpoints for `countryCode`/`GL` tokens, with automatic fallback to Google search redirects.
 - 🔍 **Public IP Association**: Automatically resolves and records current egress public IP alongside region changes for fast VPS/proxy troubleshooting.
 - ⏱️ **Debounce Verification**: Double-checks after a 3-second delay upon detecting a change to eliminate false alerts caused by transient network jitter.
@@ -73,6 +74,8 @@ Usage: check-google-region [OPTIONS]
 
 Options:
   -c, --check          Detect and print current region & public IP without saving or alerting (Dry Run)
+  -4, --ipv4-only      Only detect IPv4 stack
+  -6, --ipv6-only      Only detect IPv6 stack
   -t, --test-email     Send a test notification to verify SMTP / Webhook setup
   -s, --status         Inspect locally cached status and last check time
   -f, --force          Force alert notification and state refresh regardless of changes
@@ -114,10 +117,13 @@ Create a `.env` file in the working directory (see [.env.example](.env.example))
 
 Run as an isolated, persistent container using the official prebuilt multi-arch image (AMD64 & ARM64):
 
+> 💡 **Tip**: To detect host IPv6 in Docker, add `--net=host` (or set `network_mode: "host"` in compose).
+
 ```bash
 docker run -d \
   --name check-google-region \
   --restart unless-stopped \
+  --net=host \
   --env-file .env \
   -v region_data:/var/tmp \
   ghcr.io/wade6716/check-google-region:latest
