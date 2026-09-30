@@ -80,7 +80,7 @@ Options:
   -s, --status         Inspect locally cached status and last check time
   -f, --force          Force alert notification and state refresh regardless of changes
   -d, --daemon         Run continuously in daemon mode (ideal for Docker / standalone VPS)
-  -i, --interval SEC   Interval between checks in daemon mode (default: 600s / 10m)
+  -i, --interval SEC   Interval between checks in daemon mode (default: 3600s / 1 hour, supports env CHECK_INTERVAL / INTERVAL)
   -p, --proxy URL      Specify proxy URL for detection (e.g. http://127.0.0.1:7890)
   --insecure           Bypass SSL certificate verification
   -v, --verbose        Enable verbose debug logging
@@ -107,7 +107,7 @@ Create a `.env` file in the working directory (see [.env.example](.env.example))
 | `TELEGRAM_CHAT_ID` | `None` | Telegram Chat ID (optional) |
 | `WEBHOOK_URL` | `None` | Generic JSON Webhook URL (optional) |
 | `DAEMON_MODE` | `false` | Run continuously in daemon mode |
-| `INTERVAL` | `600` | Loop interval in seconds for daemon mode |
+| `CHECK_INTERVAL` / `INTERVAL` | `3600` | Loop interval in seconds for daemon mode (default 1 hour) |
 
 ---
 

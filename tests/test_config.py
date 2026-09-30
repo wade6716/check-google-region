@@ -10,6 +10,16 @@ class TestConfig(unittest.TestCase):
         self.assertIsNotNone(cfg.state_file)
         self.assertEqual(cfg.smtp_port, int(os.getenv("SMTP_PORT", "465")))
         self.assertFalse(cfg.insecure_ssl)
+        self.assertEqual(cfg.interval, 3600)
+        self.assertFalse(cfg.daemon_mode)
+
+    def test_interval_env(self):
+        os.environ["CHECK_INTERVAL"] = "1800"
+        try:
+            cfg = Config.from_env()
+            self.assertEqual(cfg.interval, 1800)
+        finally:
+            os.environ.pop("CHECK_INTERVAL", None)
 
     def test_load_dotenv(self):
         with tempfile.NamedTemporaryFile("w+", delete=False, encoding="utf-8") as f:

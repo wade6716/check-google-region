@@ -80,7 +80,7 @@ check-google-region --help
   -s, --status         查看本地缓存的上次检测状态与最后更新时间
   -f, --force          强制发送通知并刷新状态文件（无论地区是否发生变动）
   -d, --daemon         以常驻守护模式运行（支持 Docker 或无需 crontab 的环境）
-  -i, --interval SEC   守护模式下的检测周期秒数 (默认 600 秒 / 10 分钟)
+  -i, --interval SEC   守护模式下的检测周期秒数 (默认 3600 秒 / 1 小时，支持环境变量 CHECK_INTERVAL / INTERVAL)
   -p, --proxy URL      指定本次检测使用的代理地址 (例如 http://127.0.0.1:7890)
   --insecure           跳过 SSL 证书合法性验证 (默认进行安全校验)
   -v, --verbose        输出详细的网络请求与调试日志
@@ -107,7 +107,7 @@ check-google-region --help
 | `TELEGRAM_CHAT_ID` | `None` | Telegram Chat ID（可选） |
 | `WEBHOOK_URL` | `None` | 通用 Webhook URL（可选，支持飞书/企微/Bark/Discord） |
 | `DAEMON_MODE` | `false` | 是否默认以常驻守护模式运行 |
-| `INTERVAL` | `600` | 守护模式运行周期 (秒) |
+| `CHECK_INTERVAL` / `INTERVAL` | `3600` | 守护模式运行周期 (秒)，默认 1 小时 |
 
 ---
 

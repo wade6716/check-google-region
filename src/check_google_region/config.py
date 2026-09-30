@@ -59,9 +59,17 @@ class Config:
     telegram_bot_token: Optional[str]
     telegram_chat_id: Optional[str]
     webhook_url: Optional[str]
+    interval: int = 3600
+    daemon_mode: bool = False
 
     @classmethod
     def from_env(cls) -> "Config":
+        raw_interval = os.getenv("CHECK_INTERVAL") or os.getenv("INTERVAL") or "3600"
+        try:
+            interval_val = int(raw_interval)
+        except ValueError:
+            interval_val = 3600
+
         return cls(
             state_file=os.getenv("STATE_FILE", get_default_state_file()),
             smtp_server=os.getenv("SMTP_SERVER", "smtp.qq.com"),
@@ -74,4 +82,6 @@ class Config:
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN"),
             telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID"),
             webhook_url=os.getenv("WEBHOOK_URL"),
+            interval=interval_val,
+            daemon_mode=os.getenv("DAEMON_MODE", "false").lower() in ("true", "1", "yes"),
         )

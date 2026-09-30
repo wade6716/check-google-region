@@ -75,8 +75,8 @@ def parse_args(args: Optional[list] = None) -> argparse.Namespace:
         "-i",
         "--interval",
         type=int,
-        default=600,
-        help="守护模式下的检测周期秒数 (默认 600 秒 / 10 分钟)",
+        default=None,
+        help="守护模式下的检测周期秒数 (默认 3600 秒 / 1 小时，也支持环境变量 CHECK_INTERVAL / INTERVAL)",
     )
     parser.add_argument(
         "-p",
@@ -311,14 +311,9 @@ def main(args: Optional[list] = None) -> int:
         return 0
 
     # 4. Action: 常驻守护模式
-    is_daemon = options.daemon or os.getenv("DAEMON_MODE", "false").lower() in ("true", "1", "yes")
+    is_daemon = options.daemon or config.daemon_mode
     if is_daemon:
-        interval = options.interval
-        if os.getenv("INTERVAL"):
-            try:
-                interval = int(os.getenv("INTERVAL"))
-            except ValueError:
-                pass
+        interval = options.interval if options.interval is not None else config.interval
         print(f"[*] 启动常驻双栈守护模式，检测间隔: {interval} 秒 (按 Ctrl+C 退出)...")
         try:
             while True:

@@ -8,7 +8,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/check_google_region
 EnvironmentFile=/opt/check_google_region/.env
-ExecStart=/opt/check_google_region/.venv/bin/check-google-region --daemon --interval 600
+ExecStart=/opt/check_google_region/.venv/bin/check-google-region --daemon --interval 3600
 Restart=always
 RestartSec=10
 

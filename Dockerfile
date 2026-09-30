@@ -18,7 +18,8 @@ RUN mkdir -p /var/tmp
 # Default environment variables
 ENV PYTHONUNBUFFERED=1 \
     DAEMON_MODE=true \
-    INTERVAL=600
+    CHECK_INTERVAL=3600 \
+    INTERVAL=3600
 
 # Start in daemon mode by default
 CMD ["check-google-region", "--daemon"]
