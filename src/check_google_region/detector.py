@@ -2,8 +2,8 @@
 
 Features:
 - Independent IPv4 and IPv6 detection
-- YouTube Premium country code detection
-- Google redirect fallback
+- YouTube Premium country code detection with China lockout (送中) detection
+- Google redirect fallback & cross-verification
 - Public IP address lookup for IPv4 and IPv6
 - Proxy support
 - Safe SSL defaults with optional bypass
@@ -125,51 +125,95 @@ class RegionDetector:
 
         return None
 
+    def parse_youtube_premium_html(self, html: str) -> Tuple[Optional[str], str]:
+        """Parse YouTube Premium HTML to detect country and check for China lockout (送中).
+        
+        Returns: (country_code, source_description)
+        """
+        # 1. 核心送中特征拦截：页面包含 www.google.cn 或 google.cn
+        if "www.google.cn" in html or "google.cn" in html:
+            return "CN", "YouTube Premium (CN Lockout)"
+
+        # 2. 检查是否提示当前国家不支持 Premium (Premium is not available in your country)
+        is_not_available = bool(re.search(r"Premium is not available in your country", html, re.I))
+
+        # 3. 提取显式国家代码字段 (优先 countryCode，次优先 INNERTUBE_CONTEXT_GL)
+        match_cc = re.search(r'"countryCode":"([A-Z]{2})"', html)
+        if match_cc:
+            return match_cc.group(1), "YouTube Premium"
+
+        match_inner_gl = re.search(r'"INNERTUBE_CONTEXT_GL":"([A-Z]{2})"', html)
+        if match_inner_gl and not is_not_available:
+            return match_inner_gl.group(1), "YouTube Premium"
+
+        # 4. 检查是否有 ad-free / try it free 等服务正常开放标识
+        has_service_available = bool(re.search(r"ad-free|ad free|try it free|1-month free", html, re.I))
+
+        # 5. 兜底 GL 字段：仅在服务可用且未提示不可用时采信
+        match_gl = re.search(r'"GL":"([A-Z]{2})"', html)
+        if match_gl and has_service_available and not is_not_available:
+            return match_gl.group(1), "YouTube Premium"
+
+        return None, "none"
+
     def get_google_region(self, family: int = socket.AF_INET, timeout: int = 10) -> Tuple[Optional[str], str]:
-        """Detect country code recognized by Google / YouTube for specific IP family.
+        """Detect country code recognized by Google / YouTube for specific IP family with cross-verification.
         Returns: (country_code, detection_source)
         """
         opener = self._build_opener()
         headers = {
             "User-Agent": self.DEFAULT_UA,
             "Accept-Language": "en-US,en;q=0.9",
+            "Cookie": "CONSENT=YES+cb.20220301-11-p0.en+FX+700; PREF=hl=en&tz=UTC",
         }
 
         with force_ip_family(family):
+            yt_country: Optional[str] = None
+            yt_source: str = "none"
+
             # 1. Primary: YouTube Premium
             try:
                 req = urllib.request.Request("https://www.youtube.com/premium", headers=headers)
                 with opener.open(req, timeout=timeout) as response:
                     html = response.read().decode("utf-8", errors="ignore")
-                    match = re.search(r'"(countryCode|GL)":"([A-Z]{2})"', html)
-                    if match:
-                        code = match.group(2)
-                        return code, "YouTube Premium"
+                    yt_country, yt_source = self.parse_youtube_premium_html(html)
+                    # 如果明确判定为 CN 送中，立即返回
+                    if yt_country == "CN":
+                        return "CN", yt_source
             except Exception as e:
                 if self.verbose:
                     print(f"[!] ({'IPv6' if family == socket.AF_INET6 else 'IPv4'}) 请求 YouTube 异常: {e}")
 
-            # 2. Fallback: Google.com redirect to Google HK (CN)
+            # 2. 交叉验证与兜底：检查 Google.com 是否重定向至 google.com.hk (送中特征)
+            google_is_cn = False
             try:
                 req_google = urllib.request.Request("https://www.google.com", headers=headers)
                 with opener.open(req_google, timeout=timeout) as resp:
                     final_url = resp.geturl()
-                    if "google.com.hk" in final_url:
-                        return "CN", "Google Redirect (HK/CN)"
+                    if "google.com.hk" in final_url or "google.cn" in final_url:
+                        google_is_cn = True
             except urllib.error.HTTPError as e:
                 loc = e.headers.get("Location", "")
-                if "google.com.hk" in loc:
-                    return "CN", "Google Redirect (HK/CN)"
+                if "google.com.hk" in loc or "google.cn" in loc:
+                    google_is_cn = True
             except Exception as e:
                 if self.verbose:
                     print(f"[!] ({'IPv6' if family == socket.AF_INET6 else 'IPv4'}) 请求 Google 异常: {e}")
 
-            # 3. Fallback: Google Services Sitemap or News
+            # 交叉纠偏：如果 Google.com 重定向到了 google.com.hk，代表在 Google 体系中已全面送中！
+            if google_is_cn:
+                return "CN", "Google Redirect (HK/CN)"
+
+            # 如果 YouTube 成功检测出正常国家且 Google 未重定向至 HK/CN，返回 YouTube 结果
+            if yt_country and yt_country != "CN":
+                return yt_country, yt_source
+
+            # 3. Fallback: Google Services Sitemap
             try:
                 req_sitemap = urllib.request.Request("https://www.google.com/services/sitemap.xml", headers=headers)
                 with opener.open(req_sitemap, timeout=timeout) as resp:
                     final_url = resp.geturl()
-                    if "google.com.hk" in final_url:
+                    if "google.com.hk" in final_url or "google.cn" in final_url:
                         return "CN", "Google Services (HK/CN)"
             except Exception:
                 pass
